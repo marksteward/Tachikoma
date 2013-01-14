@@ -3,6 +3,9 @@ A Basic parser to replace Jekyll
 
 oni@section9.co.uk
 
+TODO
+
+* Atom XML and RSS output
 
 '''
 
@@ -10,6 +13,7 @@ import sys, os, argparse, yaml, shutil, time
 import markdown, threading, signal
 from http.server import HTTPServer, BaseHTTPRequestHandler, SimpleHTTPRequestHandler
 
+from distutils import dir_util
 from jinja2 import Template, Environment
 from datetime import datetime
 
@@ -41,6 +45,7 @@ class BuildThread(threading.Thread):
       for d in self.dirs.keys():
     
         if os.stat(d).st_mtime  != self.dirs[d]:
+          self.tachikoma.copydirs()
           self.tachikoma.build()
           break
     
@@ -146,6 +151,9 @@ class Tachikoma():
     # Programmatically add all the metadata
     for key in item.metadata.keys():
       setattr(item, key, item.metadata[key])
+
+    # Now set the URL which matches the filename
+    item.url = "/posts/" + item.name + ".html"
    
     return(True,item)
 
@@ -209,7 +217,7 @@ class Tachikoma():
       f.close()
 
     for item in self.posts:
-      item.content = markdown.markdown(item.raw)
+      item.content = markdown.markdown(item.raw, ['outline(wrapper_tag=div,omit_head=True, wrapper_cls=s%(LEVEL)d box)'])
       write_out(self,item) 
     
      
@@ -254,14 +262,6 @@ class Tachikoma():
     # TODO Setup the site metadata first for the Items and such
     self.site.title = "section9 dot co dot uk ltd"
 
-    if os.path.exists(self.site_dir):
-      shutil.rmtree(self.site_dir)
-    
-    os.mkdir(self.site_dir)
-    os.mkdir(self.site_post_dir)
-    
-    self.copydirs()
-
     self.error_msg( self.parse_items() )
 
     # Sort Items by date
@@ -272,13 +272,24 @@ class Tachikoma():
                     
     return (True,"Finished Building")
 
+  def clean(self):
+    ''' Remove the site and re-copy. Not called when the server is running '''
+
+    if os.path.exists(self.site_dir):
+      shutil.rmtree(self.site_dir)
+    
+    os.mkdir(self.site_dir)
+    os.mkdir(self.site_post_dir)
+    
+    self.copydirs()
+
 
   def copydirs(self):
     ''' copy any directories to the _site dir that arent special dirs '''
     for fn in os.listdir(self.dir):
       if os.path.isdir(self.dir + "/" + fn) and fn[0] != "_" and fn[0] != ".":
         print("Copying directory " + fn + " to " + self.site_dir)
-        shutil.copytree(self.dir + "/" + fn, self.site_dir  + "/" + fn)
+        dir_util.copy_tree(self.dir + "/" + fn, self.site_dir  + "/" + fn)
 
   def error_msg(self,value):
     result, message = value
@@ -297,12 +308,14 @@ if __name__ == "__main__":
 
   if args.directory and not args.server:
     t = Tachikoma(args.directory)
+    t.clean()
     result, msg = t.build()
     print (msg)
     quit()
 
   if args.directory and args.server:
     t = Tachikoma(args.directory)
+    t.clean()
     result, msg = t.build()
     print(msg)
 
