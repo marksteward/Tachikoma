@@ -27,10 +27,9 @@ class BuildThread(threading.Thread):
     threading.Thread.__init__ ( self )
     self.tachikoma = tachikoma
     self.dirs = {}
-    #self.dirs[tachikoma.dir] = os.stat(tachikoma.dir).st_mtime
-    #self.dirs[tachikoma.layout_dir] = os.stat(tachikoma.layout_dir).st_mtime
-    #self.dirs[tachikoma.post_dir] = os.stat(tachikoma.post_dir).st_mtime
+    self.set_times()
 
+  def set_times(self):
     for root, dirs, files in os.walk(self.tachikoma.dir):
 
       for name in files:
@@ -48,6 +47,7 @@ class BuildThread(threading.Thread):
           self.tachikoma.copydirs()
           self.tachikoma.build()
           break
+      self.set_times()
     
 
 
