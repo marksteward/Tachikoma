@@ -218,6 +218,10 @@ class Tachikoma():
 
     for item in self.posts:
       item.content = markdown.markdown(item.raw, ['outline(wrapper_tag=div,omit_head=True, wrapper_cls=s%(LEVEL)d box)'])
+      
+      # Use the line below if you just want standard markdown parsing - I used a special plugin for Section9
+      #item.content = markdown.markdown(item.raw)
+
       write_out(self,item) 
     
      
