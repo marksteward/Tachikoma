@@ -261,9 +261,10 @@ class Tachikoma():
     self.pages = []
     self.posts = []
     self.site = Item()
-
+    
+    # TODO Establish a method to set this in a global file
     # TODO Setup the site metadata first for the Items and such
-    self.site.title = "section9 dot co dot uk ltd"
+    self.site.title = "SamLR"
 
     self.error_msg( self.parse_items() )
 
@@ -308,7 +309,7 @@ if __name__ == "__main__":
   parser.add_argument("-s", "--server", action="store_true", help="run as a server")
   args = parser.parse_args()
 
-
+  
   if args.directory and not args.server:
     t = Tachikoma(args.directory)
     t.clean()
