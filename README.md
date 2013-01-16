@@ -10,6 +10,7 @@ This is written in Python3 and requires the following packages:
 * markdown
 * jinja2
 * jinja2 loop extention
+* yaml [download](http://pyyaml.org/wiki/PyYAML "PyYAML download page")
 
 Optionally
 
