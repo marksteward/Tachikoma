@@ -74,7 +74,6 @@ class Tachikoma():
   ''' build the actual site '''
 
   def __init__(self, directory):
-
     ''' Perform the intial setup with the directory'''
     self.error_msg(self.set_working_dir(directory))
 
@@ -116,7 +115,7 @@ class Tachikoma():
         if not first:
           first = True
           continue          
-        else:
+        else if not found: # don't parse markdown horizontal rules '---'
           found = True
           continue
 
