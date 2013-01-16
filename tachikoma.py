@@ -115,7 +115,7 @@ class Tachikoma():
         if not first:
           first = True
           continue          
-        else if not found: # don't parse markdown horizontal rules '---'
+        elif not found: # don't parse markdown horizontal rules '---'
           found = True
           continue
 
