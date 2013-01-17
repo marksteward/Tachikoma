@@ -14,12 +14,8 @@ import markdown, threading, signal
 from http.server import HTTPServer, BaseHTTPRequestHandler, SimpleHTTPRequestHandler
 
 from distutils import dir_util
-from jinja2 import Template, Environment
+from jinja2 import Template, Environment, DictLoader
 from datetime import datetime
-
-
-# Extra functionality from Jinja2
-jinja_env = Environment(extensions=['jinja2.ext.loopcontrols'])
 
 class BuildThread(threading.Thread):
 
@@ -79,12 +75,15 @@ class Tachikoma():
 
   def read_layouts(self):
     ''' Scan for and read in layouts - memory intensive? probably not '''
+    layout_dict = {}
     for fn in os.listdir(self.layout_dir):
       f = open(self.layout_dir + "/" + fn)
       name, extension = os.path.splitext(fn)
-      self.layouts[name] = f.read()
+      layout_dict[name] = f.read()
       f.close()
-
+    # Load the layouts into the environment so jinja can find them
+    self.jinja_env = Environment(extensions=['jinja2.ext.loopcontrols'], 
+                                 loader=DictLoader(layout_dict));
 
   def parse_item(self, path):
     # Start with the YAML front matter - build a dictionary on metadata
@@ -129,12 +128,6 @@ class Tachikoma():
     
     item.metadata = yaml.safe_load(yaml_raw)
    
-    # If markdown, set a raw step
-    if item.ext == ".md" or item.ext == ".markdown":
-      item.raw = item_body
-    else:
-      item.content = item_body
-
     f.close()
 
     # Attempt to find the date and title
@@ -144,9 +137,18 @@ class Tachikoma():
     if not item.metadata["layout"]:
       return (False, "ERROR: no layout directive found in " + path)
 
-    if item.metadata["layout"] not in self.layouts.keys():
+    if item.metadata["layout"] not in self.jinja_env.list_templates():
       return(False , "ERROR: no matching layout " + item.metadata["layout"] + " found in " + self.layout_dir )
-
+    
+    # Add an extends statement so that we can use blocks etc. in our templates
+    item_body = "{{% extends '{0}' %}}\n".format(item.metadata["layout"])+item_body
+    
+    # If markdown, set a raw step
+    if item.ext == ".md" or item.ext == ".markdown":
+      item.raw = item_body
+    else:
+      item.content = item_body
+      
     # Programmatically add all the metadata
     for key in item.metadata.keys():
       setattr(item, key, item.metadata[key])
@@ -209,25 +211,24 @@ class Tachikoma():
     ''' Perform the markdown and jinja2 steps on the raw Items and write to files '''
 
     def write_out(self,item):
-      template = jinja_env.from_string(self.layouts[item.metadata["layout"]])
-      item.rendered = template.render( page = item, site = self.site )
+      """Make the item into a jinja template, render it and write the output"""
+      template = self.jinja_env.from_string(item.content)
+      item.rendered = template.render(item=item)
       f = open(item.tpath + "/" + item.name + ".html", "w")
       f.write(item.rendered)
       f.close()
-
+    
     for item in self.posts:
-      item.content = markdown.markdown(item.raw, ['outline(wrapper_tag=div,omit_head=True, wrapper_cls=s%(LEVEL)d box)'])
+      # item.content = markdown.markdown(item.raw, ['outline(wrapper_tag=div,omit_head=True, wrapper_cls=s%(LEVEL)d box)'])
       
       # Use the line below if you just want standard markdown parsing - I used a special plugin for Section9
-      #item.content = markdown.markdown(item.raw)
+      if item.ext == ".md" or item.ext == ".markdown":
+        item.content = markdown.markdown(item.raw)
 
       write_out(self,item) 
     
      
     for item in self.pages:
-    
-      template = jinja_env.from_string(item.content)
-      item.content = template.render( site = self.site )
       write_out(self,item)
 
 
@@ -248,7 +249,6 @@ class Tachikoma():
     if not os.path.exists(self.layout_dir ):
       return (False,"No Layout directory")
     
-
     self.read_layouts()
 
     return (True,"Success")
