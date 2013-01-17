@@ -139,10 +139,7 @@ class Tachikoma():
 
     if item.metadata["layout"] not in self.jinja_env.list_templates():
       return(False , "ERROR: no matching layout " + item.metadata["layout"] + " found in " + self.layout_dir )
-    
-    # Add an extends statement so that we can use blocks etc. in our templates
-    item_body = "{{% extends '{0}' %}}\n".format(item.metadata["layout"])+item_body
-    
+        
     # If markdown, set a raw step
     if item.ext == ".md" or item.ext == ".markdown":
       item.raw = item_body
@@ -213,22 +210,27 @@ class Tachikoma():
     def write_out(self,item):
       """Make the item into a jinja template, render it and write the output"""
       template = self.jinja_env.from_string(item.content)
-      item.rendered = template.render(item=item)
+      item.rendered = template.render(page=item, site=self.site)
       f = open(item.tpath + "/" + item.name + ".html", "w")
       f.write(item.rendered)
       f.close()
     
     for item in self.posts:
-      # item.content = markdown.markdown(item.raw, ['outline(wrapper_tag=div,omit_head=True, wrapper_cls=s%(LEVEL)d box)'])
       
       # Use the line below if you just want standard markdown parsing - I used a special plugin for Section9
       if item.ext == ".md" or item.ext == ".markdown":
-        item.content = markdown.markdown(item.raw)
+        item.content = markdown.markdown(item.raw, ['outline(wrapper_tag=div,omit_head=True, wrapper_cls=s%(LEVEL)d box)'])
+        #item.content = markdown.markdown(item.raw)
 
+        # Since this is markdown, we cant add an extends statement so we set the whole thing as a content block
+        item.content = "{% block content %}\n" + item.content + "{% endblock %}"
+        item.content = "{{% extends '{0}' %}}\n".format(item.metadata["layout"]) + item.content
+  
       write_out(self,item) 
     
      
     for item in self.pages:
+      item.content = "{{% extends '{0}' %}}\n".format(item.metadata["layout"]) + item.content
       write_out(self,item)
 
 
@@ -264,7 +266,7 @@ class Tachikoma():
     
     # TODO Establish a method to set this in a global file
     # TODO Setup the site metadata first for the Items and such
-    self.site.title = "SamLR"
+    self.site.title = "Section9 dot co dot uk ltd"
 
     self.error_msg( self.parse_items() )
 
