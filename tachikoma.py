@@ -3,10 +3,6 @@ A Basic parser to replace Jekyll
 
 oni@section9.co.uk
 
-TODO
-
-* Atom XML and RSS output
-
 '''
 
 import sys, os, argparse, yaml, shutil, time
@@ -17,13 +13,52 @@ from distutils import dir_util
 from jinja2 import Template, Environment, DictLoader
 from datetime import datetime
 
+
+class Atomizer():
+  '''Create an atom.xml file for feeds '''
+
+  def __init__(self,tachikoma):
+
+    self.tachikoma = tachikoma
+
+  def generate(self):
+
+
+    self.content = '''<?xml version="1.0" encoding="utf-8"?>
+      <feed xmlns="http://www.w3.org/2005/Atom">
+    '''
+
+    self.content += "<title>" + self.tachikoma.site.title + "</title>\n"
+    self.content += "<link href=\"" + self.tachikoma.site_url + "/atom.xml\" />\n"
+    self.content += "<updated>" + datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ") + "</updated>\n"
+
+    for post in self.tachikoma.posts:
+      self.content += "<entry>\n"
+      self.content += "<title>" + post.title + "</title>\n"
+      self.content += "<link href=\"" + self.tachikoma.site_url + "/posts/" + post.name   + ".html\" />\n"
+      self.content += "<updated>" + post.date.strftime("%Y-%m-%dT%H:%M:%SZ") + "</updated>\n"
+      
+      self.content += "<title>" + post.title + "</title>\n"
+      #self.content += "<content type=\"html\">" + post.rendered + "</content>\n"
+      self.content += "<id>" + str(post.id) + "</id>"
+      self.content += "</entry>\n"
+
+    self.content += "</feed>\n"
+
+    f = open(self.tachikoma.site_dir + "/atom.xml", "w")
+    f.write(self.content)
+    f.close()
+
+
 class BuildThread(threading.Thread):
+  ''' A thread to watch the directory, forcing a rebuild if things change '''
 
   def __init__(self,tachikoma):
     threading.Thread.__init__ ( self )
     self.tachikoma = tachikoma
     self.dirs = {}
     self.set_times()
+    self.post_id = 0
 
   def set_times(self):
     for root, dirs, files in os.walk(self.tachikoma.dir):
@@ -71,7 +106,9 @@ class Tachikoma():
 
   def __init__(self, directory):
     ''' Perform the intial setup with the directory'''
+    
     self.error_msg(self.set_working_dir(directory))
+    self.site_url = "http://www.section9.co.uk"
 
   def read_layouts(self):
     ''' Scan for and read in layouts - memory intensive? probably not '''
@@ -105,6 +142,8 @@ class Tachikoma():
     item = Item()
     item.path, item.ext = os.path.splitext(path)
     item.name = os.path.basename(item.path)
+    item.id = self.post_id
+    self.post_id += 1
 
     if item.ext != ".md" and item.ext != ".markdown" and item.ext != ".html" and item.ext != ".htm":
       return (False, "Can only work with Markdown or HTML containing a YAML header")
@@ -179,6 +218,8 @@ class Tachikoma():
   def parse_items(self):
 
     ''' Scan the Item directory for pages '''
+
+    self.post_id = 0
 
     # List level posts
     for fn in os.listdir(self.post_dir):
@@ -312,17 +353,22 @@ if __name__ == "__main__":
   args = parser.parse_args()
 
   
+  
   if args.directory and not args.server:
     t = Tachikoma(args.directory)
     t.clean()
+    a = Atomizer(t)
     result, msg = t.build()
+    a.generate()
     print (msg)
     quit()
 
   if args.directory and args.server:
     t = Tachikoma(args.directory)
+    a = Atomizer(t)
     t.clean()
     result, msg = t.build()
+    a.generate()
     print(msg)
 
     server_class = HTTPServer
