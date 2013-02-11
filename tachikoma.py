@@ -105,8 +105,7 @@ class Tachikoma():
   ''' build the actual site '''
 
   def __init__(self, directory):
-    ''' Perform the intial setup with the directory'''
-    
+    ''' Perform the intial setup with the directory''' 
     self.error_msg(self.set_working_dir(directory))
     self.site_url = "http://www.section9.co.uk"
 
@@ -258,10 +257,20 @@ class Tachikoma():
     
     for item in self.posts:
       
-      # Use the line below if you just want standard markdown parsing - I used a special plugin for Section9
       if item.ext == ".md" or item.ext == ".markdown":
-        item.content = markdown.markdown(item.raw, ['outline(wrapper_tag=div,omit_head=True, wrapper_cls=s%(LEVEL)d box)'])
-        #item.content = markdown.markdown(item.raw)
+        
+        # this section tests for mdx-outline plugin for markdown, which section9 uses to create its masonry bricks
+        # its useful if you want sections but you can simply comment this out and use markdown straight if you prefer
+        try:
+          import mdx_outline
+          foo_loaded = True
+        except ImportError:
+          foo_loaded = False 
+        
+        if foo_loaded:
+          item.content = markdown.markdown(item.raw, ['outline(wrapper_tag=div,omit_head=True, wrapper_cls=s%(LEVEL)d box)'])
+        else:
+          item.content = markdown.markdown(item.raw)
 
         # Since this is markdown, we cant add an extends statement so we set the whole thing as a content block
         item.content = "{% block content %}\n" + item.content + "{% endblock %}"
@@ -276,8 +285,10 @@ class Tachikoma():
 
 
   def set_working_dir(self, directory):
-
-    self.dir = os.getcwd() + "/" + directory
+    if directory[0]== "/":
+      self.dir = directory
+    else:
+      self.dir = os.getcwd() + "/" + directory
     self.post_dir = self.dir + "/_posts"
     self.site_dir = self.dir + "/_site"
     self.site_post_dir = self.dir + "/_site/posts"
