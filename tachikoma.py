@@ -64,8 +64,10 @@ class BuildThread(threading.Thread):
     for root, dirs, files in os.walk(self.tachikoma.dir):
 
       for name in files:
-        path = root + "/" + name
-        self.dirs[path] = os.stat(path).st_mtime
+        # ignore special files for now
+        if name[0] != ".":
+          path = root + "/" + name
+          self.dirs[path] = os.stat(path).st_mtime
     
   
   def run(self):
@@ -75,8 +77,10 @@ class BuildThread(threading.Thread):
       for d in self.dirs.keys():
     
         if os.stat(d).st_mtime  != self.dirs[d]:
+          self.tachikoma.read_layouts()
           self.tachikoma.copydirs()
-          self.tachikoma.build()
+          status, msg = self.tachikoma.build()
+          print(msg)
           break
       self.set_times()
     
@@ -251,6 +255,7 @@ class Tachikoma():
       """Make the item into a jinja template, render it and write the output"""
       template = self.jinja_env.from_string(item.content)
       item.rendered = template.render(page=item, site=self.site)
+      print ("Creating: " + item.tpath + "/" + item.name + ".html")
       f = open(item.tpath + "/" + item.name + ".html", "w")
       f.write(item.rendered)
       f.close()
@@ -261,11 +266,11 @@ class Tachikoma():
         
         # this section tests for mdx-outline plugin for markdown, which section9 uses to create its masonry bricks
         # its useful if you want sections but you can simply comment this out and use markdown straight if you prefer
-        try:
-          import mdx_outline
-          foo_loaded = True
-        except ImportError:
-          foo_loaded = False 
+        #try:
+        #  import mdx_outline
+        #  foo_loaded = True
+        #except ImportError:
+        foo_loaded = False 
         
         if foo_loaded:
           item.content = markdown.markdown(item.raw, ['outline(wrapper_tag=div,omit_head=True, wrapper_cls=s%(LEVEL)d box)'])
@@ -342,12 +347,29 @@ class Tachikoma():
     self.copydirs()
 
 
+  def _recursive_overwrite(self, src, dest, ignore=None):
+    if os.path.isdir(src):
+      if not os.path.isdir(dest):
+        os.makedirs(dest)
+      files = os.listdir(src)
+      
+      if ignore is not None:
+        ignored = ignore(src, files)
+      else:
+        ignored = set()
+      for f in files:
+        if f not in ignored:
+          self._recursive_overwrite(os.path.join(src, f), os.path.join(dest, f), ignore)
+    else:
+      shutil.copyfile(src, dest)
+  
   def copydirs(self):
     ''' copy any directories to the _site dir that arent special dirs '''
     for fn in os.listdir(self.dir):
       if os.path.isdir(self.dir + "/" + fn) and fn[0] != "_" and fn[0] != ".":
         print("Copying directory " + fn + " to " + self.site_dir)
-        dir_util.copy_tree(self.dir + "/" + fn, self.site_dir  + "/" + fn)
+        #dir_util.copy_tree(self.dir + "/" + fn, self.site_dir  + "/" + fn)
+        self._recursive_overwrite(self.dir + "/" + fn, self.site_dir  + "/" + fn, ignore = shutil.ignore_patterns('.*', 'tmp*'))
 
   def error_msg(self,value):
     result, message = value
